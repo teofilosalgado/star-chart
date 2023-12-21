@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "star-chart"
+version = "0.1.0"
+description = ""
+authors = ["João Victor Teófilo Salgado <jvictorteo2000@hotmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+skyfield = "^1.46"
+geopandas = "^0.14.1"
+click = "^8.1.7"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

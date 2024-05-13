@@ -1,14 +1,14 @@
 [tool.poetry]
 name = "star-chart"
 version = "0.1.0"
-description = ""
+description = "A simple set of CLI tools designed to automatically download and parse astronomical observation data into a GeoPackage for star chart authoring."
 authors = ["João Victor Teófilo Salgado <jvictorteo2000@hotmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-skyfield = "^1.46"
-geopandas = "^0.14.1"
+skyfield = "^1.48"
+geopandas = "^0.14.4"
 click = "^8.1.7"
 
 [build-system]

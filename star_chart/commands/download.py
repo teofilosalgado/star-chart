@@ -33,7 +33,7 @@ from ..utils import extract_file
     "-d",
     "--download-folder",
     "download_folder_path",
-    default=".",
+    default="./download",
     show_default=True,
     type=click.Path(
         exists=False,
@@ -222,6 +222,7 @@ def main(
                     Point([item["end_x"], item["end_y"]]),
                 ]
             ),
+            result_type=None,
             axis=1,
         ),
         crs=4326,

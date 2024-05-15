@@ -6,7 +6,7 @@ authors = ["João Victor Teófilo Salgado <jvictorteo2000@hotmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 skyfield = "^1.48"
 geopandas = "^0.14.4"
 click = "^8.1.7"

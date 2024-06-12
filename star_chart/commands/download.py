@@ -19,9 +19,13 @@ from ..utils import extract_file
 @click.argument("date")
 @click.argument("latitude", type=click.FloatRange(min=-90, max=90))
 @click.argument("longitude", type=click.FloatRange(min=-180, max=180))
-@click.argument(
+@click.option(
+    "-c",
+    "--config",
     "config_file_path",
-    metavar="CONFIG",
+    help="Configuration file used to define astronomical data repository URLs.",
+    default="./config.ini",
+    show_default=True,
     type=click.Path(
         exists=True,
         file_okay=True,
@@ -33,6 +37,7 @@ from ..utils import extract_file
     "-d",
     "--download-folder",
     "download_folder_path",
+    help="Folder used as a cache/temporary storage for downloaded data.",
     default="./download",
     show_default=True,
     type=click.Path(
@@ -46,6 +51,7 @@ from ..utils import extract_file
     "-o",
     "--output-file",
     "output_file_path",
+    help="Resulting GeoPackage file location.",
     default="./output.gpkg",
     show_default=True,
     type=click.Path(
@@ -63,9 +69,9 @@ def main(
     download_folder_path: str,
     output_file_path: str,
 ):
-    """Automatically downloads, sanitizes, and organizes astronomical observation
-    data at a specific DATE and location (LATITUDE, LONGITUDE) into a GeoPackage
-    for sky map authoring. Data providers are defined in the CONFIG file.
+    """Automatically downloads, sanitizes, and organizes astronomical observation data
+    at a specific DATE and location (LATITUDE, LONGITUDE) into a GeoPackage for sky map
+    authoring. Data providers are defined in the CONFIG file.
 
     For convenience, the specified download directory option will be created if
     nonexistent.

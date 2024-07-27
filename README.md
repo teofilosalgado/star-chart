@@ -12,6 +12,8 @@ poetry install
 
 ## Usage
 
+All commands listed below should be issued from this project's root folder unless otherwise stated.
+
 ### Download data
 
 To download astronomical data for a specific observation date/time (e.g. `2023-06-03` or `2023-06-04T02:00:00Z`) and location (e.g. `-21.232989`, `-44.998945`) run the `download` script as follows:

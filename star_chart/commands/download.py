@@ -1,5 +1,5 @@
-# imports
 import configparser
+import logging
 import os
 from datetime import datetime, timezone
 
@@ -12,7 +12,13 @@ from skyfield.data import hipparcos, stellarium
 from skyfield.projections import build_stereographic_projection
 
 from ..constants import greek_dict
-from ..utils import extract_file
+
+logging.basicConfig(
+    format="%(asctime)s|%(levelname)8s| %(message)s",
+    level=logging.INFO,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @click.command("download")
@@ -76,6 +82,14 @@ def main(
     For convenience, the specified download directory option will be created if
     nonexistent.
     """
+
+    logger.info("Parameters:")
+    logger.info("date: %s", date)
+    logger.info("latitude: %s", latitude)
+    logger.info("longitude: %s", longitude)
+    logger.info("config_file_path: %s", config_file_path)
+    logger.info("download_folder_path: %s", download_folder_path)
+    logger.info("output_file_path: %s", output_file_path)
 
     # Read configuration file
     config_file = configparser.ConfigParser()
@@ -227,10 +241,10 @@ def main(
                     Point([item["start_x"], item["start_y"]]),
                     Point([item["end_x"], item["end_y"]]),
                 ]
-            ),
+            ),  # type: ignore
             result_type=None,
             axis=1,
-        ),
+        ),  # type: ignore
         crs=4326,
     )  # type: ignore
     constellations_gdf = constellations_gdf.dissolve(by="abbreviation").merge(
@@ -247,15 +261,23 @@ def main(
 
     # Load constellation boundary data
     with load.open(constellation_boundary_url) as downloaded_file:
-        extracted_file_name = extract_file(downloaded_file)
-    widths = [11, 11, 5, 100]
-    names = ["ra_hours", "dec_degrees", "abbreviation", "type_point"]
-    boundaries_df = pd.read_fwf(extracted_file_name, widths=widths, names=names)
+        colspecs = [(0, 9), (9, 18), (19, 23), (24, 25)]
+        names = ["ra_hours", "dec_degrees", "abbreviation", "type_point"]
+        boundaries_df = pd.read_fwf(
+            downloaded_file,
+            colspecs=colspecs,
+            names=names,
+        )
+
+    # Filter boundary data by point type
+    boundaries_df = boundaries_df[boundaries_df["type_point"] == "O"]
+
+    # Create required columns
     boundaries_df.index.name = "id"
     boundaries_df["epoch_year"] = epoch_year
 
     # Convert hours to degrees
-    boundaries_df["ra_degrees"] = boundaries_df["ra_hours"] * 15
+    boundaries_df["ra_degrees"] = boundaries_df["ra_hours"]
 
     # Project coordinates
     boundary_positions = earth.at(timescale).observe(Star.from_dataframe(boundaries_df))  # type: ignore

@@ -2,7 +2,7 @@
 name = "star-chart"
 version = "0.1.0"
 description = "A simple set of CLI tools designed to automatically download and parse astronomical observation data into a GeoPackage for star chart authoring."
-authors = ["João Victor Teófilo Salgado <jvictorteo2000@hotmail.com>"]
+authors = [{name = "João Victor Teófilo Salgado", email = "jvictorteo2000@hotmail.com"}]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -13,3 +13,9 @@ dependencies = [
 
 [project.scripts]
 star-chart = "star_chart.cli:app"
+
+[tool.uv]
+package = true
+
+[tool.setuptools]
+packages = ["star_chart"]

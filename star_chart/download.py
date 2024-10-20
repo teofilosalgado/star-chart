@@ -2,94 +2,78 @@ import configparser
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
 
-import click
 import geopandas as gpd
 import pandas as pd
+import typer
 from shapely.geometry import LineString, Point, Polygon
 from skyfield.api import Loader, Star, wgs84
 from skyfield.data import hipparcos, stellarium
 from skyfield.projections import build_stereographic_projection
+from typing_extensions import Annotated
 
-from ..constants import greek_dict
-
-logging.basicConfig(
-    format="%(asctime)s|%(levelname)8s| %(message)s",
-    level=logging.INFO,
-)
+from star_chart.constants import ascii_to_greek_letters
 
 logger = logging.getLogger(__name__)
 
 
-@click.command("download")
-@click.argument("date")
-@click.argument("latitude", type=click.FloatRange(min=-90, max=90))
-@click.argument("longitude", type=click.FloatRange(min=-180, max=180))
-@click.option(
-    "-c",
-    "--config",
-    "config_file_path",
-    help="Configuration file used to define astronomical data repository URLs.",
-    default="./config.ini",
-    show_default=True,
-    type=click.Path(
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        resolve_path=True,
-    ),
-)
-@click.option(
-    "-d",
-    "--download-folder",
-    "download_folder_path",
-    help="Folder used as a cache/temporary storage for downloaded data.",
-    default="./download",
-    show_default=True,
-    type=click.Path(
-        exists=False,
-        file_okay=False,
-        dir_okay=True,
-        resolve_path=True,
-    ),
-)
-@click.option(
-    "-o",
-    "--output-file",
-    "output_file_path",
-    help="Resulting GeoPackage file location.",
-    default="./output.gpkg",
-    show_default=True,
-    type=click.Path(
-        exists=False,
-        file_okay=True,
-        dir_okay=False,
-        resolve_path=True,
-    ),
-)
-def main(
-    date: str,
-    latitude: float,
-    longitude: float,
-    config_file_path: str,
-    download_folder_path: str,
-    output_file_path: str,
+def download(
+    date: Annotated[datetime, typer.Argument()],
+    latitude: Annotated[float, typer.Argument(min=-90, max=90)],
+    longitude: Annotated[float, typer.Argument(min=-180, max=180)],
+    config_file_path: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--config",
+            "-c",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            resolve_path=True,
+        ),
+    ] = Path("./config.ini"),
+    download_folder_path: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--download",
+            "-d",
+            exists=False,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+        ),
+    ] = Path("./download"),
+    output_file_path: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output",
+            "-o",
+            exists=False,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+        ),
+    ] = Path("./output.gpkg"),
 ):
     """Automatically downloads, sanitizes, and organizes astronomical observation data
-    at a specific DATE and location (LATITUDE, LONGITUDE) into a GeoPackage for sky map
-    authoring. Data providers are defined in the CONFIG file.
+    from a given DATE and location (LATITUDE, LONGITUDE) into a GeoPackage. Data
+    providers are defined in the CONFIG file.
 
-    For convenience, the specified download directory option will be created if
-    nonexistent.
+    For convenience, the specified temporary download directory option will be created
+    if nonexistent.
     """
 
-    logger.info("Parameters:")
-    logger.info("date: %s", date)
-    logger.info("latitude: %s", latitude)
-    logger.info("longitude: %s", longitude)
-    logger.info("config_file_path: %s", config_file_path)
-    logger.info("download_folder_path: %s", download_folder_path)
-    logger.info("output_file_path: %s", output_file_path)
+    logger.info("Arguments:")
+    logger.info("  date: %s", date)
+    logger.info("  latitude: %s", latitude)
+    logger.info("  longitude: %s", longitude)
+    logger.info("Options:")
+    logger.info("  config_file_path: %s", config_file_path)
+    logger.info("  download_folder_path: %s", download_folder_path)
+    logger.info("  output_file_path: %s", output_file_path)
 
     # Read configuration file
     config_file = configparser.ConfigParser()
@@ -106,19 +90,21 @@ def main(
     constellation_name_url = config_file["constellation"]["name_url"]
 
     # Create download directory
+    logger.info(f"Creating download directory at {download_folder_path}")
     os.makedirs(download_folder_path, exist_ok=True)
 
     # Create default file loader
     load = Loader(download_folder_path)
 
     # Load ephemeris data
+    logger.info("Downloading ephemeris data")
     ephemeris = load(ephemeris_data_url)
 
     # An ephemeris on Earth position
     earth = ephemeris["earth"]
 
     # Get specified date as an UTC-based datetime object
-    utc = datetime.fromisoformat(date).replace(tzinfo=timezone.utc)
+    utc = date.replace(tzinfo=timezone.utc)
 
     # Define observer using specified location coordinates and UTC time
     timescale = load.timescale().from_datetime(utc)
@@ -129,9 +115,11 @@ def main(
     center = earth.at(timescale).observe(Star(ra=ra, dec=dec))  # type: ignore
 
     # Build the stereographic projection
+    logger.info("Building the stereographic projection")
     projection = build_stereographic_projection(center)
 
-    # Load hipparcos data
+    # Load Hipparcos data
+    logger.info("Downloading Hipparcos data")
     with load.open(star_data_url) as downloaded_file:
         stars_df = hipparcos.load_dataframe(downloaded_file)
 
@@ -153,6 +141,7 @@ def main(
         ]
     )
 
+    logger.info("Downloading HYG data")
     # Load HYG data (Hipparcos-Yale-Gliese) to get proper names, constellations and bayer
     with load.open(star_name_url) as downloaded_file:
         star_names_df = pd.read_csv(
@@ -163,7 +152,7 @@ def main(
     star_names_df.columns = ("proper", "bayer", "abbreviation")
     star_names_df["abbreviation"] = star_names_df["abbreviation"].str.upper()
     star_names_df["bayer"] = star_names_df["bayer"].str.split("-").str[0]
-    star_names_df["greek"] = star_names_df["bayer"].map(greek_dict)
+    star_names_df["greek"] = star_names_df["bayer"].map(ascii_to_greek_letters)
 
     # Join columns
     stars_df = stars_df.merge(
@@ -172,6 +161,7 @@ def main(
     stars_df.index = stars_df.index.astype("int")
 
     # Build geodataframe
+    logger.info("Build stars geodataframe")
     stars_gdf = gpd.GeoDataFrame(
         stars_df,
         geometry=gpd.points_from_xy(stars_df["x"], stars_df["y"]),
@@ -185,6 +175,7 @@ def main(
     stars_gdf = stars_gdf.set_crs(epsg=4326)  # type: ignore
 
     # Export to .gpkg
+    logger.info(f"Saving stars geodataframe to {output_file_path}")
     stars_gdf.to_file(output_file_path, driver="GPKG", layer="stars", encoding="utf-8")
 
     # Load constellation name data
@@ -316,7 +307,3 @@ def main(
     boundaries_gdf.to_file(
         output_file_path, driver="GPKG", layer="boundaries", encoding="utf-8"
     )
-
-
-if __name__ == "__main__":
-    main()

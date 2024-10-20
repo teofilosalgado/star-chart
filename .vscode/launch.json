@@ -8,10 +8,11 @@
             "name": "download",
             "type": "debugpy",
             "request": "launch",
-            "module": "star_chart.commands.download",
+            "module": "star_chart",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
+                "download",
                 "-c",
                 "${workspaceFolder}${pathSeparator}config.ini",
                 "-d",
@@ -19,7 +20,7 @@
                 "-o",
                 "${workspaceFolder}${pathSeparator}output.gpkg",
                 "--",
-                "2023-06-04T02:00:00Z",
+                "2023-06-04T02:00:00",
                 "-21.232989",
                 "-44.998945",
             ]

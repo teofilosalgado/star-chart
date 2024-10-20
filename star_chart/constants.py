@@ -1,5 +1,5 @@
-# greek letters
-greek_dict = {
+# Greek letters lookup table
+ascii_to_greek_letters = {
     "Alp": "α",
     "Bet": "β",
     "Chi": "χ",

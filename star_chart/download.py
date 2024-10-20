@@ -40,7 +40,6 @@ def download(
         typer.Option(
             "--download",
             "-d",
-            exists=False,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
@@ -51,9 +50,8 @@ def download(
         typer.Option(
             "--output",
             "-o",
-            exists=False,
-            file_okay=False,
-            dir_okay=True,
+            file_okay=True,
+            dir_okay=False,
             resolve_path=True,
         ),
     ] = Path("./output.gpkg"),
@@ -161,7 +159,7 @@ def download(
     stars_df.index = stars_df.index.astype("int")
 
     # Build geodataframe
-    logger.info("Build stars geodataframe")
+    logger.info("Building stars geodataframe")
     stars_gdf = gpd.GeoDataFrame(
         stars_df,
         geometry=gpd.points_from_xy(stars_df["x"], stars_df["y"]),
@@ -179,6 +177,7 @@ def download(
     stars_gdf.to_file(output_file_path, driver="GPKG", layer="stars", encoding="utf-8")
 
     # Load constellation name data
+    logger.info("Downloading constellation names")
     with load.open(constellation_name_url) as downloaded_file:
         constellations_names_df = pd.read_csv(
             downloaded_file,
@@ -191,6 +190,7 @@ def download(
     constellations_names_df.index = constellations_names_df.index.str.upper()
 
     # Load constellation edge data
+    logger.info("Downloading constellation edges")
     with load.open(constellation_data_url) as downloaded_file:
         constellations = stellarium.parse_constellations(downloaded_file)
     constellations_coordinate_pairs = sum(
@@ -210,6 +210,7 @@ def download(
     constellations_df.index.name = "id"
 
     # Merge with star coordinates
+    logger.info("Obtaining constellation edge coordinates from star's coordinates")
     constellations_df = constellations_df.merge(
         stars_df[["x", "y", "ra_degrees", "dec_degrees"]].add_prefix("start_"),
         how="inner",
@@ -224,6 +225,7 @@ def download(
     )
 
     # Build geodataframe
+    logger.info("Building constellation edges geodataframe")
     constellations_gdf = gpd.GeoDataFrame(
         constellations_df,
         geometry=constellations_df.apply(
@@ -246,11 +248,13 @@ def download(
     constellations_gdf = constellations_gdf.set_crs(epsg=4326)  # type: ignore
 
     # Export to .gpkg
+    logger.info(f"Saving constellation eges geodataframe to {output_file_path}")
     constellations_gdf.to_file(
         output_file_path, driver="GPKG", layer="constellations", encoding="utf-8"
     )
 
     # Load constellation boundary data
+    logger.info("Downloading constellation boundaries")
     with load.open(constellation_boundary_url) as downloaded_file:
         colspecs = [(0, 9), (9, 18), (19, 23), (24, 25)]
         names = ["ra_hours", "dec_degrees", "abbreviation", "type_point"]
@@ -271,6 +275,7 @@ def download(
     boundaries_df["ra_degrees"] = boundaries_df["ra_hours"]
 
     # Project coordinates
+    logger.info("Projecting constellation boundaries coordinates")
     boundary_positions = earth.at(timescale).observe(Star.from_dataframe(boundaries_df))  # type: ignore
     boundaries_df["x"], boundaries_df["y"] = projection(boundary_positions)
 
@@ -278,6 +283,7 @@ def download(
     boundaries_df = boundaries_df.drop(columns=["type_point", "ra_hours", "epoch_year"])
 
     # Build geodataframe
+    logger.info("Building constellation boundaries geodataframe")
     boundaries_gdf = gpd.GeoDataFrame(
         boundaries_df,
         geometry=gpd.points_from_xy(boundaries_df["x"], boundaries_df["y"]),
@@ -304,6 +310,7 @@ def download(
     boundaries_gdf = boundaries_gdf.set_crs(epsg=4326)  # type: ignore
 
     # Export to .gpkg
+    logger.info(f"Saving constellation boundaries geodataframe to {output_file_path}")
     boundaries_gdf.to_file(
         output_file_path, driver="GPKG", layer="boundaries", encoding="utf-8"
     )

@@ -15,6 +15,7 @@ from skyfield.projections import build_stereographic_projection
 from typing_extensions import Annotated
 
 from star_chart.constants import ascii_to_greek_letters
+from star_chart.utils import extract_file
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,7 @@ def download(
     star_positions = earth.at(timescale).observe(Star.from_dataframe(stars_df))  # type: ignore
     stars_df["x"], stars_df["y"] = projection(star_positions)
 
-    # Set global epoch year
+    # Set global epoch year (1991.25)
     epoch_year = stars_df["epoch_year"].max()
 
     # Drop not used columns
@@ -141,9 +142,10 @@ def download(
 
     logger.info("Downloading HYG data")
     # Load HYG data (Hipparcos-Yale-Gliese) to get proper names, constellations and bayer
-    with load.open(star_name_url) as downloaded_file:
+    with load.open(star_name_url) as compressed_downloaded_file:
+        extracted_downloaded_file = extract_file(compressed_downloaded_file)
         star_names_df = pd.read_csv(
-            downloaded_file,
+            extracted_downloaded_file,
             index_col="hip",
             usecols=["hip", "proper", "bayer", "con"],
         )

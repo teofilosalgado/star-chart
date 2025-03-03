@@ -3,6 +3,7 @@ import logging
 import typer
 
 from star_chart.download import download
+from star_chart.observe import observe
 from star_chart.plot import plot
 
 logging.basicConfig(
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 app = typer.Typer()
 app.command()(download)
+app.command()(observe)
 app.command()(plot)
 
 if __name__ == "__main__":

@@ -13,6 +13,17 @@
             "justMyCode": false,
             "args": [
                 "download",
+            ]
+        },
+        {
+            "name": "observe",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "star_chart",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "observe",
                 "-c",
                 "${workspaceFolder}${pathSeparator}config.ini",
                 "-d",

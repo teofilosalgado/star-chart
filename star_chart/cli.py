@@ -2,9 +2,9 @@ import logging
 
 import typer
 
-from star_chart.download import download
-from star_chart.observe import observe
-from star_chart.plot import plot
+from star_chart.commands.download import download
+from star_chart.commands.observe import observe
+from star_chart.commands.plot import plot
 
 logging.basicConfig(
     format="%(asctime)s|%(levelname)8s| %(message)s",

@@ -91,13 +91,13 @@ def _get_constellation_boundaries_data_frame(vizier: VizierClass) -> DataFrame:
 
 
 def _get_constellation_edges_data_frame():
-    DATASET = "https://raw.githubusercontent.com/Stellarium/stellarium-skycultures/refs/heads/master/western/index.json"
+    DATASET = "https://raw.githubusercontent.com/Stellarium/stellarium-skycultures/refs/heads/master/western_SnT/index.json"
 
     def _get_constellation_edges() -> Generator[tuple[str, str, int, int], Any, None]:
         response = requests.get(DATASET).json()
         constellations = response["constellations"]
         for constellation in constellations:
-            name = str(constellation["common_name"]["native"])
+            name = str(constellation["common_name"]["english"])
             abbreviation = str(constellation["iau"]).upper()
             for segment, line in enumerate(constellation["lines"]):
                 for star in line:

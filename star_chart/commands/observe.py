@@ -12,13 +12,9 @@ from skyfield.api import Star, load, wgs84
 from skyfield.projections import build_stereographic_projection
 from typing_extensions import Annotated
 
+from star_chart.constants import EPSG_CODE
+
 logger = logging.getLogger(__name__)
-
-# Set global epoch year (1991.25)
-EPOCH_YEAR = 1991.25
-
-# Default EPSG code
-EPSG_CODE = 3857
 
 
 def _build_stars_geo_data_frame(
@@ -35,7 +31,7 @@ def _build_stars_geo_data_frame(
     logger.info("Building stars geodataframe")
     stars_gdf = gpd.GeoDataFrame(
         stars_df[["hip", "magnitude"]].set_index("hip"),
-        geometry=gpd.points_from_xy(stars_df["x"], stars_df["y"]),
+        geometry=gpd.points_from_xy(stars_df["x"], stars_df["y"], crs=EPSG_CODE),
         crs=EPSG_CODE,
     )
     return stars_gdf
@@ -76,7 +72,7 @@ def _build_constellation_edges_geo_data_frame(
 
     constellation_edges_grouped_series = (
         constellation_edges_df.groupby(["iau_abbreviation", "iau_name", "segment"])
-        .apply(lambda group: LineString(zip(group["x"], group["y"])))
+        .apply(lambda group: LineString(zip(group["x"], group["y"])))  # type: ignore
         .groupby(["iau_abbreviation", "iau_name"])
         .apply(lambda group: MultiLineString(list(group)))
     )
@@ -123,7 +119,7 @@ def _build_constellation_boundaries_geo_data_frame(
 
     constellation_boundaries_grouped_series = constellation_boundaries_df.groupby(
         ["iau_abbreviation", "iau_name"]
-    ).apply(lambda group: Polygon(list(zip(group["x"], group["y"]))))
+    ).apply(lambda group: Polygon(list(zip(group["x"], group["y"]))))  # type: ignore
 
     constellation_boundaries_grouped_df = (
         constellation_boundaries_grouped_series.to_frame(name="geometry")
@@ -138,9 +134,9 @@ def _build_constellation_boundaries_geo_data_frame(
 
 
 def observe(
-    date: Annotated[datetime, typer.Argument()],
-    latitude: Annotated[float, typer.Argument(min=-90, max=90)],
-    longitude: Annotated[float, typer.Argument(min=-180, max=180)],
+    input_date: Annotated[datetime, typer.Argument()],
+    input_latitude: Annotated[float, typer.Argument(min=-90, max=90)],
+    input_longitude: Annotated[float, typer.Argument(min=-180, max=180)],
     input_database_file_path: Annotated[
         Path,
         typer.Argument(
@@ -149,7 +145,7 @@ def observe(
             dir_okay=False,
             resolve_path=True,
         ),
-    ] = Path("./download.duckdb"),
+    ] = Path("./output/download.duckdb"),
     input_ephemeris_file_path: Annotated[
         Path,
         typer.Argument(
@@ -158,7 +154,7 @@ def observe(
             dir_okay=False,
             resolve_path=True,
         ),
-    ] = Path("./de421.bsp"),
+    ] = Path("./output/de421.bsp"),
     output_geopackage_file_path: Annotated[
         Path,
         typer.Argument(
@@ -167,23 +163,21 @@ def observe(
             dir_okay=False,
             resolve_path=True,
         ),
-    ] = Path("./download.gpkg"),
+    ] = Path("./output/observe.gpkg"),
 ):
-    """Automatically downloads, sanitizes, and organizes astronomical observation data
-    from a given DATE and location (LATITUDE, LONGITUDE) into a GeoPackage. Data
-    providers are defined in the CONFIG file.
-
-    For convenience, the specified temporary download directory option will be created
-    if nonexistent.
+    """Observe and project astronomical data to a given date, time and location
+    (latitude, longitude) into a GeoPackage file containing the following feature
+    classes: stars (points), constellation_boundaries (polygons) and constellation_edges
+    (lines). The date/time argument should be provided at UTC.
     """
 
     logger.info("Arguments:")
-    logger.info("  date: %s", date)
-    logger.info("  latitude: %s", latitude)
-    logger.info("  longitude: %s", longitude)
-    logger.info("  input database: %s", input_database_file_path)
-    logger.info("  ephemeris: %s", input_ephemeris_file_path)
-    logger.info("  output geopackage: %s", output_geopackage_file_path)
+    logger.info("  input_date: %s", input_date)
+    logger.info("  input_latitude: %s", input_latitude)
+    logger.info("  input_longitude: %s", input_longitude)
+    logger.info("  input_database_file_path: %s", input_database_file_path)
+    logger.info("  input_ephemeris_file_path: %s", input_ephemeris_file_path)
+    logger.info("  output_geopackage_file_path: %s", output_geopackage_file_path)
 
     # Load ephemeris data
     logger.info(f"Loading ephemeris from {input_database_file_path}")
@@ -193,11 +187,11 @@ def observe(
     earth = ephemeris["earth"]
 
     # Get specified date as an UTC-based datetime object
-    utc = date.replace(tzinfo=timezone.utc)
+    utc = input_date.replace(tzinfo=timezone.utc)
 
     # Define observer using specified location coordinates and UTC time
     timescale = load.timescale().from_datetime(utc)
-    observer = wgs84.latlon(latitude, longitude).at(timescale)
+    observer = wgs84.latlon(input_latitude, input_longitude).at(timescale)
 
     # Define a center based on observer position
     ra, dec, _ = observer.radec()

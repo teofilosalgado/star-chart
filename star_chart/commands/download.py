@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any, Generator
 
@@ -11,14 +12,19 @@ from pandas import DataFrame
 from skyfield.api import load
 from typing_extensions import Annotated
 
-# Set global epoch year (1991.25)
-EPOCH_YEAR = 1991.25
+from star_chart.constants import (
+    CONSTELLATION_EDGES_DOWNLOAD_URL,
+    EPHEMERIS_DOWNLOAD_URL,
+    EPOCH_YEAR,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _get_stars_data_frame(vizier: VizierClass) -> DataFrame:
     DATASET = "I/239/hip_main"
 
-    results = vizier.query_constraints(
+    results = vizier.query_constraints(  # type: ignore
         catalog=DATASET,
         **{"_RA.icrs": "!= NULL", "_DE.icrs": "!= NULL"},
     )
@@ -56,13 +62,15 @@ def _get_constellation_boundaries_data_frame(vizier: VizierClass) -> DataFrame:
         "_DE.icrs": "dec_degrees",
     }
 
-    results = vizier.query_constraints(
+    results = vizier.query_constraints(  # type: ignore
         catalog=DATASET,
         **{"type": "O", "_RA.icrs": "!= NULL", "_DE.icrs": "!= NULL"},
     )
     result = next(iter(results), None)
     if result is None:
-        raise RuntimeError()
+        raise RuntimeError(
+            "Invalid Vizier output columns and/or constraints on columns."
+        )
 
     filtered_result = result[list(constellation_boundary_column_lookup.keys())]
     for old_name, new_name in constellation_boundary_column_lookup.items():
@@ -74,12 +82,14 @@ def _get_constellation_boundaries_data_frame(vizier: VizierClass) -> DataFrame:
     # Duplicating first vertex of each constellation to close the boundary polygon
     constellation_boundaries_df = (
         filtered_result_df.groupby("iau_abbreviation", sort=False)
-        .apply(lambda group: pd.concat([group, group.head(1)]))
-        .reset_index(drop=True)
+        .apply(lambda group: pd.concat([group, group.head(1)]), include_groups=False)
+        .droplevel(1)
+        .reset_index()
     )
-    constellation_boundaries_df["order"] = constellation_boundaries_df.groupby(
-        "iau_abbreviation"
-    ).cumcount()
+
+    constellation_boundaries_df = constellation_boundaries_df.assign(
+        order=constellation_boundaries_df.groupby("iau_abbreviation").cumcount()
+    )
 
     constellation_boundaries_df["epoch_year"] = EPOCH_YEAR
     constellation_boundaries_df.index = constellation_boundaries_df.index.rename("id")
@@ -91,10 +101,8 @@ def _get_constellation_boundaries_data_frame(vizier: VizierClass) -> DataFrame:
 
 
 def _get_constellation_edges_data_frame():
-    DATASET = "https://raw.githubusercontent.com/Stellarium/stellarium-skycultures/refs/heads/master/western_SnT/index.json"
-
     def _get_constellation_edges() -> Generator[tuple[str, str, int, int], Any, None]:
-        response = requests.get(DATASET).json()
+        response = requests.get(CONSTELLATION_EDGES_DOWNLOAD_URL).json()
         constellations = response["constellations"]
         for constellation in constellations:
             name = str(constellation["common_name"]["english"])
@@ -120,7 +128,6 @@ def _get_constellation_edges_data_frame():
 
 
 def _download_ephemeris(output_ephemeris_file_path: Path):
-    EPHEMERIS_DOWNLOAD_URL = "https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/de421.bsp"
     if not output_ephemeris_file_path.exists():
         load.download(EPHEMERIS_DOWNLOAD_URL, str(output_ephemeris_file_path))
 
@@ -134,7 +141,7 @@ def download(
             dir_okay=False,
             resolve_path=True,
         ),
-    ] = Path("./download.duckdb"),
+    ] = Path("./output/download.duckdb"),
     output_ephemeris_file_path: Annotated[
         Path,
         typer.Argument(
@@ -143,28 +150,39 @@ def download(
             dir_okay=False,
             resolve_path=True,
         ),
-    ] = Path("./de421.bsp"),
+    ] = Path("./output/de421.bsp"),
 ):
-    """Automatically downloads, sanitizes, and organizes astronomical observation data
-    from VizieR (https://vizier.cds.unistra.fr/) and Stellarium (https://github.com/Stellarium)
-    into a DuckDB database file. It also downloads ephemeris data from NASA's JPL into a
-    BSP file.
+    """Automatically download, sanitize, and organize astronomical observation data from
+    VizieR (https://vizier.cds.unistra.fr/) and Stellarium (https://github.com/Stellarium)
+    into a DuckDB database file containing the following tables: stars,
+    constellation_boundaries and constellation_edges. Ephemeris data from NASA's JPL
+    will also be downloaded into a BSP file.
     """
+
+    logger.info("Arguments:")
+    logger.info("  output_database_file_path: %s", output_database_file_path)
+    logger.info("  output_ephemeris_file_path: %s", output_ephemeris_file_path)
 
     vizier = Vizier()
     vizier.ROW_LIMIT = -1
 
+    logger.info("Downloading stars")
     stars_df = _get_stars_data_frame(vizier)  # noqa: F841
+    logger.info("Downloading constellation boundaries")
     constellation_boundaries_df = _get_constellation_boundaries_data_frame(vizier)  # noqa: F841
+    logger.info("Downloading constellation edges")
     constellation_edges_df = _get_constellation_edges_data_frame()  # noqa: F841
 
     with duckdb.connect(output_database_file_path) as connection:
+        logger.info("Creating 'stars' table")
         connection.execute(
             "CREATE OR REPLACE TABLE stars AS SELECT * FROM stars_df",
         )
+        logger.info("Creating 'constellation_boundaries' table")
         connection.execute(
             "CREATE OR REPLACE TABLE constellation_boundaries AS SELECT * FROM constellation_boundaries_df",
         )
+        logger.info("Creating 'constellation_edges' table")
         connection.execute(
             "CREATE OR REPLACE TABLE constellation_edges AS SELECT * FROM constellation_edges_df",
         )

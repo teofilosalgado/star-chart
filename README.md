@@ -1,13 +1,12 @@
 # Star Chart
 
-A simple set of CLI tools designed to:
+![Python](https://img.shields.io/badge/python-3.14-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)![Duckdb](https://img.shields.io/badge/duckdb-%23FFF000.svg?style=for-the-badge&logo=duckdb&logoColor=black)![QGIS](https://img.shields.io/badge/qgis-%2393b023?&style=for-the-badge&logo=qgis&logoColor=white)
 
-- Automatically download and parse astronomical observation data into a GeoPackage for star chart authoring.
-- Plot star charts using QGIS layouts.
+A simple set of CLI tools designed to automatically download, parse, project and plot astronomical observation data for star chart authoring.
 
 ## Installation
 
-To install this tool and all of its dependencies to the current virtual environment, run:
+To install this tool and all of its dependencies in a virtual environment, run:
 
 ```
 uv sync
@@ -15,28 +14,49 @@ uv sync
 
 ## Usage
 
-All commands listed below can also be executed directly as Python modules i.e.: `python -m star_chart [OPTIONS] COMMAND [ARGS]`.
+This package is composed of multiple CLI tools designed to be chained in a star chart authoring pipeline in the following order:
 
-### `download`
+```mermaid
+flowchart LR
+    A[Download] --> B[Project] --> C[Plot]
+    
+    A -.-> A1[(DuckDB)]
+    A -.-> A2@{ shape: doc, label: "de421.bsp" }
+    A1 -.-> B
+    A2 -.-> B
 
-To download astronomical data for a specific observation date/time (e.g. `2023-06-03` or `2023-06-04T02:00:00`) and location (e.g. `-21.232989`, `-44.998945`) run the `download` command as follows:
+    B -.-> B1[(GeoPackage)]
+    B1 -.-> C
+    B2[/Date, time and location/] -.-> B
 
-```sh
-star-chart download -- 2023-06-04T02:00:00 -21.232989 -44.998945
+    C -.-> C1@{ shape: doc, label: "plot.pdf" }
 ```
 
-which is a shorthand for:
+Below, you will find documentation for each tool. Also, feel free to call `star-chart plot --help` for interactive help.
+
+### `download` Tool
+
+Automatically download, sanitize, and organize astronomical observation data from [VizieR](https://vizier.cds.unistra.fr/) and [Stellarium](https://github.com/Stellarium) into a DuckDB database file containing the following tables: `stars`, `constellation_boundaries` and `constellation_edges`. Ephemeris data from NASA's JPL will also be downloaded into a BSP file.
 
 ```sh
-star-chart download -c ./config.ini -d ./download -o ./output.gpkg -- 2023-06-04T02:00:00 -21.232989 -44.998945
+star-chart download [OUTPUT_DATABASE_FILE_PATH] [OUTPUT_EPHEMERIS_FILE_PATH]
 ```
 
-Given a `./config.ini` file, the script will download all required temporary data to the `./download` fodler, creating a GeoPackage at `./output.gpkg` containing three resulting layers: `stars`, `constellations` and `boundaries`.
+Where:
 
-For convenience, a sample `config.ini` is available at the root of this project.
 
-Feel free to call `star-chart download --help` for help.
+- `[OUTPUT_DATABASE_FILE_PATH]`
+    
+    Output DuckDB database file path (defaults to `./output/download.duckdb`).
 
-### `plot`
+- `[OUTPUT_EPHEMERIS_FILE_PATH]`
+    
+    Output ephemeris file path (defaults to `./output/de421.bsp`).
 
-Feel free to call `star-chart plot --help` for help.
+As an example, to download astronomical observation data to a DuckDB database at `./output/download.duckdb` and ephemeris data from NASA's JPL to a BSP file at `./output/de421.bsp`, you can run:
+
+```sh
+star-chart download "./output/download.duckdb" "./output/de421.bsp"
+```
+
+Again, feel free to call `star-chart download --help` for help.

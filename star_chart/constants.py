@@ -1,3 +1,13 @@
+# Download URLs
+EPHEMERIS_DOWNLOAD_URL = "https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/de421.bsp"
+CONSTELLATION_EDGES_DOWNLOAD_URL = "https://raw.githubusercontent.com/Stellarium/stellarium-skycultures/refs/heads/master/western_SnT/index.json"
+
+# Set global epoch year (1991.25)
+EPOCH_YEAR = 1991.25
+
+# Default EPSG code
+EPSG_CODE = "EPSG:3857"
+
 # Greek letters lookup table
 ascii_to_greek_letters = {
     "Alp": "α",

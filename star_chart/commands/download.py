@@ -145,7 +145,7 @@ def download(
     output_ephemeris_file_path: Annotated[
         Path,
         typer.Argument(
-            help="Output ephemeris file path.",
+            help="Output ephemeris data file path.",
             file_okay=True,
             dir_okay=False,
             resolve_path=True,

@@ -134,9 +134,21 @@ def _build_constellation_boundaries_geo_data_frame(
 
 
 def observe(
-    input_date: Annotated[datetime, typer.Argument()],
-    input_latitude: Annotated[float, typer.Argument(min=-90, max=90)],
-    input_longitude: Annotated[float, typer.Argument(min=-180, max=180)],
+    input_date: Annotated[
+        datetime, typer.Argument(help="Date and time of observation in UTC.")
+    ],
+    input_latitude: Annotated[
+        float,
+        typer.Argument(
+            help="Latitude of observation in decimal degrees.", min=-90, max=90
+        ),
+    ],
+    input_longitude: Annotated[
+        float,
+        typer.Argument(
+            help="Longitude of observation in decimal degrees.", min=-180, max=180
+        ),
+    ],
     input_database_file_path: Annotated[
         Path,
         typer.Argument(
